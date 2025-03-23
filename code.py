@@ -1,5 +1,6 @@
 import random
 import time
+from os import getenv
 import board
 import displayio
 import adafruit_imageload
@@ -8,6 +9,11 @@ import adafruit_lis3dh
 from analogio import AnalogIn
 from adafruit_matrixportal.matrix import Matrix
 from sprites.data import SPRITES_DATA
+
+import wifi
+import adafruit_connection_manager
+import adafruit_minimqtt.adafruit_minimqtt as MQTT
+from adafruit_io.adafruit_io import IO_MQTT
 
 # UTILITY FUNCTIONS AND CLASSES --------------------------------------------
 
@@ -31,6 +37,7 @@ class Sprite(displayio.TileGrid):
         elif isinstance(transparent, int):
             palette.make_transparent(transparent)
         super(Sprite, self).__init__(bitmap, pixel_shader=palette)
+
 
 # SET UP
 MATRIX = Matrix(bit_depth=6)
@@ -81,6 +88,40 @@ lis3dh = adafruit_lis3dh.LIS3DH_I2C(i2c, address=0x19)
 
 # Set range of accelerometer (can be RANGE_2_G, RANGE_4_G, RANGE_8_G or RANGE_16_G).
 lis3dh.range = adafruit_lis3dh.RANGE_2_G
+
+# WIFI SETUP
+
+# Grab credentials from env
+ssid = getenv('SSID')
+wifi_password = getenv('PASSWORD')
+username = getenv('USERNAME')
+aioKey = getenv('AIO_KEY')
+
+# Establish WiFi Connection
+wifi.radio.connect(ssid, wifi_password)
+
+# Websocket and ssl_context
+pool = adafruit_connection_manager.get_radio_socketpool(wifi.radio)
+ssl_context = adafruit_connection_manager.get_radio_ssl_context(wifi.radio)
+
+# Creates a MQTT client
+mqtt_client = MQTT.MQTT(
+    broker="io.adafruit.com",
+    port=8883,
+    username=username,
+    password=wifi_password,
+    socket_pool=pool,
+    ssl_context=ssl_context,
+    is_ssl=True,
+)
+
+# Creates a client with AdafruitIO, and connects it to their services
+io = IO_MQTT(mqtt_client)
+io.connect()
+
+# Subscribes to the 'ModernMind' feed
+io.subscribe(feed_key = 'modernman')
+
 
 # MAIN LOOP ----------------------------------------------------------------
 
