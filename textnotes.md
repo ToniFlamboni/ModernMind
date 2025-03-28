@@ -24,6 +24,10 @@ First and foremost, let's consider what features I'm going to have in the protot
 - Here's what I'm thinking: Each of these reactive checks can live inside one conditional statement: was anything sent from AdafruitIO? This will hopefully reduce the amount of checks made per loop.
 - If this check passes, then all the other checks are actually run! From there, the rest of the code should operate.
 
+## UPDATE: Connectivity
+* Here's how I understand how connectivity works:
+    * If ANYTHING changes at all, the 'on_message' function of the client gets set off, 
+
 ### Mouth and Expression Mixing
 - Honestly, for this one I think I can just apply the transparency color to the expressions. That's all there is to it!
 

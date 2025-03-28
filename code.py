@@ -38,6 +38,22 @@ class Sprite(displayio.TileGrid):
             palette.make_transparent(transparent)
         super(Sprite, self).__init__(bitmap, pixel_shader=palette)
 
+def ioConnect(client):
+    io.subscribe(feed_key = 'modernmind')
+    # Used to connect/reconnect with AdafruitIO. Gets called initially, and called again if a disconnect happens.
+
+
+def disconnect(client):
+    # This is more for error checking. If the client disconnects, the face should change to reflect an error!
+    pass
+
+def ioMessageDecode(client, feed_id, payload):
+    if payload == "ON":
+        SPRITES.append(Sprite(SPRITES_DATA['test_layer']))
+    if payload == "OFF":
+        SPRITES.pop(-1)
+    # I think this might contain all the logic for face changes and stuff. I think?
+
 
 # SET UP
 MATRIX = Matrix(bit_depth=6)
@@ -120,12 +136,16 @@ io = IO_MQTT(mqtt_client)
 io.connect()
 
 # Subscribes to the 'ModernMind' feed
-io.subscribe(feed_key = 'modernman')
+io.subscribe(feed_key = 'modernmind')
 
+io.on_message = ioMessageDecode
 
 # MAIN LOOP ----------------------------------------------------------------
 
 while True:
+    # Maintains connection with IO MQTT client
+    io.loop()
+
     NOW = time.monotonic()
 
     # Audio mouth syncing -------------------------------------------------------------
