@@ -11,6 +11,8 @@ SPRITES_DATA = {
 
     'test_layer'     : SPRITES_PATH + 'test.bmp',
 
+    'error_layer'    : SPRITES_PATH + 'dead.bmp',
+
     'transparent'    : (255, 0, 255), # Transparent color (decimal values) in above images
 
     'eyes'           : (0, 0),
