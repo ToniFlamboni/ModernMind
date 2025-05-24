@@ -1,3 +1,4 @@
+# Write your code here :-)
 import random
 import time
 from os import getenv
@@ -14,11 +15,15 @@ import adafruit_lis3dh
 from analogio import AnalogIn
 from adafruit_matrixportal.matrix import Matrix
 from sprites.data import SPRITES_DATA
+from adafruit_display_text import label
 
 import wifi
 import adafruit_connection_manager
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
 from adafruit_io.adafruit_io import IO_MQTT
+
+from adafruit_display_text import label
+from adafruit_bitmap_font import bitmap_font
 
 # UTILITY FUNCTIONS AND CLASSES --------------------------------------------
 
@@ -61,14 +66,138 @@ def disconnect(client):
     pass
 
 
+def textDisplay():
+    global newFont
+    global newTextExpression
+
+    if len(newText) < 8:
+        newFont = bitmap_font.load_font("Consolas-10-rb.bdf")
+        print("Large font selected.")
+    else:
+        newFont = bitmap_font.load_font("Consolas-8-r.bdf")
+        print ("Smaller font selected.")
+
+    updating_label.font = newFont
+    updating_label.text = newText
+    print("Just to be sure, the text to be displayed is... " + updating_label.text)
+    # add label to group that is showing on display
+
+    SPRITES.append(Sprite(SPRITES_DATA["base_image"]))
+
+    if newTextExpression == 1:
+        newExpression = 'text_exp_happy'
+    elif newTextExpression == 2:
+        newExpression = 'text_exp_sad'
+    elif newTextExpression == 3:
+        newExpression = 'text_exp_smug'
+    elif newTextExpression == 4:
+        newExpression = 'text_exp_dead'
+    else:
+        print("Invalid input! Defaulting..")
+        newExpression = 'text_exp_happy'
+
+    SPRITES.append(Sprite(SPRITES_DATA[newExpression], SPRITES_DATA["transparent"]))
+    SPRITES.append(updating_label)
+
+    # TODO: Figure out why this takes so damn long to display
+
+
+def faceplaceSwitch(newExpression):
+    SPRITE_LIST = []
+    SPRITE_LIST.append(SPRITES.pop())  # Remove expression layer
+    SPRITE_LIST.append(SPRITES.pop())  # Remove mouth layer
+    SPRITES.pop()  # Remove eyes layer
+
+    SPRITES.append(
+        Sprite(SPRITES_DATA[newExpression], SPRITES_DATA["transparent"])
+    )  # Replace eyes layer
+    SPRITES.append(SPRITE_LIST.pop())  # Re-add mouth layer
+    SPRITES.append(SPRITE_LIST.pop())  # Re-add expression layer
+
+
 def ioMessageDecode(client, feed_id, payload):
-    if payload == "ON":
-        SPRITES.append(Sprite(SPRITES_DATA["test_layer"], SPRITES_DATA["transparent"]))
-        # print("Change detected! TEST SPRITE ENABLED!")
-    if payload == "OFF":
-        SPRITES.pop(-1)
-        # print("Change detected! TEST SPRITE DISABLED.")
-    # I think this might contain all the logic for face changes and stuff. I think?
+
+    if isinstance(payload, str):
+        if payload == "BLTRO":
+            SPRITES.append(Sprite(SPRITES_DATA["exp_balatro"]))
+
+        elif payload == "P03":
+            SPRITES.append(Sprite(SPRITES_DATA["exp_p03"]))
+
+        elif payload == "DRONE":
+            SPRITES.append(Sprite(SPRITES_DATA["exp_drone"]))
+
+        elif payload == "LOWPWR":
+            SPRITES.append(Sprite(SPRITES_DATA["exp_lowpwr"]))
+
+        elif payload == "SLEEPY":
+            SPRITES.append(Sprite(SPRITES_DATA["exp_sleepy"]))
+
+        elif payload == "ON":
+            SPRITES.append(
+                Sprite(SPRITES_DATA["test_layer"], SPRITES_DATA["transparent"])
+            )
+        elif payload == "TxtOn":
+            textDisplay()
+
+        elif payload == "TxtOff":
+            SPRITES.pop(-1)
+            SPRITES.pop(-1)
+            SPRITES.pop(-1)
+
+        elif payload == "OFF":
+            SPRITES.pop(-1)
+
+        elif payload == "0":
+            SPRITE_LIST = []
+            SPRITE_LIST.append(SPRITES.pop())  # Remove expression layer
+            SPRITE_LIST.append(SPRITES.pop())  # Remove mouth layer
+            SPRITES.pop()  # Remove eyes layer
+
+            SPRITES.append(
+                Sprite(SPRITES_DATA["eyes_neutral"], SPRITES_DATA["transparent"])
+            )  # Replace eyes layer
+            SPRITES.append(SPRITE_LIST.pop())  # Re-add mouth layer
+            SPRITES.append(SPRITE_LIST.pop())  # Re-add expression layer
+
+            print("FACEPLATE CHANGE DETECTED! Neutral")
+        elif payload == "1":
+            SPRITE_LIST = []
+            SPRITE_LIST.append(SPRITES.pop())  # Remove expression layer
+            SPRITE_LIST.append(SPRITES.pop())  # Remove mouth layer
+            SPRITES.pop()  # Remove eyes layer
+
+            SPRITES.append(
+                Sprite(SPRITES_DATA["eyes_tired"], SPRITES_DATA["transparent"])
+            )  # Replace eyes layer
+            SPRITES.append(SPRITE_LIST.pop())  # Re-add mouth layer
+            SPRITES.append(SPRITE_LIST.pop())  # Re-add expression layer
+            print("FACEPLATE CHANGE DETECTED! Tired")
+        elif payload == "2":
+            SPRITE_LIST = []
+            SPRITE_LIST.append(SPRITES.pop())  # Remove expression layer
+            SPRITE_LIST.append(SPRITES.pop())  # Remove mouth layer
+            SPRITES.pop()  # Remove eyes layer
+
+            SPRITES.append(
+                Sprite(SPRITES_DATA["eyes_indifferent"], SPRITES_DATA["transparent"])
+            )  # Replace eyes layer
+            SPRITES.append(SPRITE_LIST.pop())  # Re-add mouth layer
+            SPRITES.append(SPRITE_LIST.pop())  # Re-add expression layer
+            print("FACEPLATE CHANGE DETECTED! Indifferent")
+        else:
+            global newText
+            global newTextExpression
+
+            newText = payload[0:-1]
+            try:
+                newTextExpression = int(payload[-1:])
+                print(newTextExpression)
+            except:
+                print("Invalid input on enter! Defaulting...")
+
+            print("TEXT UPDATED! New text value: " + newText)
+
 
 
 # SET UP
@@ -78,14 +207,9 @@ DISPLAY = MATRIX.display
 # Order in which sprites are added determines the layer order
 SPRITES = displayio.Group()
 SPRITES.append(Sprite(SPRITES_DATA["base_image"]))  # Keep opaque
-SPRITES.append(Sprite(SPRITES_DATA["eyes_image"], SPRITES_DATA["transparent"]))
-SPRITES.append(Sprite(SPRITES_DATA["mouth_image"], SPRITES_DATA["transparent"]))
-SPRITES.append(
-    Sprite(SPRITES_DATA["exp_image"], SPRITES_DATA["transparent"])
-)  # Keep opaque
-# SPRITES.append(Sprite(SPRITES_DATA['test_layer'], SPRITES_DATA['transparent'])) #Keep opaque
-# An additional layer would go here, presumably the text layer.
-### Add more layers here, if desired. General setup here.
+SPRITES.append(Sprite(SPRITES_DATA["eyes_neutral"], SPRITES_DATA["transparent"]))
+SPRITES.append(Sprite(SPRITES_DATA["mouth_neutral"], SPRITES_DATA["transparent"]))
+SPRITES.append(Sprite(SPRITES_DATA["exp_image"], SPRITES_DATA["transparent"]))  # Keep opaque
 
 DISPLAY.root_group = SPRITES
 
@@ -98,13 +222,13 @@ TIME_OF_LAST_TAP_EVENT = (
     TIME_OF_LAST_EXP_EVENT
 ) = TIME_OF_LAST_BLINK_EVENT = time.monotonic()
 
-EXP_STATE = 0  # Expression neutral   ## NEUTRAL???
+EXP_STATE = 0  # Expression neutral
 EXP_TYPE = 0  # Expression type
 
 MOUTH_TYPE = 0  ## mouth type???
 
 WIDTH = 64
-HEIGHT = 32  ## Change depending on what LCD I get
+HEIGHT = 32
 
 FRAMES_HOLD = 9  # Animation frame speed
 COUNTDOWN = FRAMES_HOLD
@@ -123,6 +247,23 @@ lis3dh = adafruit_lis3dh.LIS3DH_I2C(i2c, address=0x19)
 
 # Set range of accelerometer (can be RANGE_2_G, RANGE_4_G, RANGE_8_G or RANGE_16_G).
 lis3dh.range = adafruit_lis3dh.RANGE_2_G
+
+# Text Display Setup
+
+# Determines color
+color = 0xFCFFA4
+
+# Set default font for text, set default text expression, creates text var
+newFont = bitmap_font.load_font("Consolas-10-rb.bdf")
+newText = "Hello!"
+newTextExpression = 0
+
+# Create Label object for text display
+updating_label = label.Label(font=newFont, text=newText, scale=1, color=color)
+
+# set label position on the display
+updating_label.anchor_point = (0.5, 0.5)
+updating_label.anchored_position = (32, 12)
 
 # WIFI SETUP
 
@@ -147,23 +288,30 @@ mqtt_client = MQTT.MQTT(
     socket_pool=pool,
     ssl_context=context,
     is_ssl=True,
-    socket_timeout = 0.2
+    socket_timeout=0.5,
 )
 
+SPRITES.append(Sprite(SPRITES_DATA["boot_image"]))
 # Creates a client with AdafruitIO, and connects it to their services
 io = IO_MQTT(mqtt_client)
+
 while True:
     try:
         io.connect()
-    except:
-        print("Connection failure!")
+    except Exception as e:
+        print("Connection to AdafruitIO failed!")
+        print(e)
     else:
         break
+
 
 # Subscribes to the 'ModernMind' feed
 io.subscribe(feed_key="modernmind")
 
 io.on_message = ioMessageDecode
+
+# Removes startup image
+SPRITES.pop(-1)
 
 # MAIN LOOP ----------------------------------------------------------------
 loopCounter = 0
@@ -172,19 +320,19 @@ while True:
 
     if loopCounter == 25:
         # Maintains connection with IO MQTT client
-        try:
-            io.loop(timeout=0.21)
-            loopCounter = 0
-        except:
-            print("Connection to AdafruitIO failed!")
-            SPRITES.append(Sprite(SPRITES_DATA['error_layer']))
-            io.connect()
-            SPRITES.pop()
+        #        try:
+        io.loop(timeout=0.51)
+        loopCounter = 0
+    #        except Exception as e:
+    #            print("Connection to AdafruitIO failed!")
+    #            print(e)
+    #            SPRITES.append(Sprite(SPRITES_DATA['error_layer']))
+    #            io.connect()
+    # TODO: fix failsafe not reconnecting to adafruitIO on exception!
+    #            SPRITES.pop()
 
     loopCounter += 1
-    print(loopCounter)
-
-    # TODO: Create both an exception catcher, AND a way to reconnect without exploding!
+    # print(loopCounter)
 
     NOW = time.monotonic()
 
@@ -199,12 +347,10 @@ while True:
             signalMin = signal
         if signal > signalMax:
             signalMax = signal
-
     peakToPeak = signalMax - signalMin  # Audio amplitude
     MOUTH_TYPE = int(((peakToPeak - 250) * 2) / 16383)  # Remove low-level noise, boost
     if MOUTH_TYPE > 3:
         MOUTH_TYPE = 3
-
     # Blinking -------------------------------------------------------------
 
     if NOW - TIME_OF_LAST_BLINK_EVENT > BLINK_EVENT_DURATION:
@@ -217,7 +363,6 @@ while True:
         else:  # Blink ended,
             BLINK_STATE = 0  # paused
             BLINK_EVENT_DURATION = random.uniform(BLINK_EVENT_DURATION * 3, 4)
-
     if BLINK_STATE:  # Currently in a blink?
         # Fraction of closing or opening elapsed (0.0 to 1.0)
         FRAME = 0  # Open eyes frame
@@ -227,10 +372,8 @@ while True:
             FRAME = FRAME - 1
             if FRAME == -1:
                 FRAME += 2
-
     else:  # Not blinking
         FRAME = 0
-
     # Expression Changing -------------------------------------------------------------
 
     # Read accelerometer values (in m / s ^ 2).  Returns a 3-tuple of x, y,
@@ -320,7 +463,6 @@ while True:
                     EXP_TYPE = 0
                     EXP_SWITCH = 0
                     COUNTDOWN = FRAMES_HOLD
-
     # Then interpolate between closed position and open position
     EYES_POS = (SPRITES_DATA["eyes"][0], SPRITES_DATA["eyes"][1] - FRAME * HEIGHT)
 
@@ -342,5 +484,3 @@ while True:
     ## Alright, here's the deal. This counter below MUST happen every loop. Only issue is, it takes a WHILE for this to process: exactly how long is seen
     ## in the timeout field. This unfortunately stalls the rest of the loop, leading to potentially janky transitions. What to do?
     ## Two options: give this a SECOND conditional on if my face is in its neutral state, or tie it to the accelerometer. I'm less privy to that approach though, given that it'd have to be a range and not just 0.
-    ## The other option is to place it at the bottom of the loop. It remains to be seen if this'll work, though.
-
